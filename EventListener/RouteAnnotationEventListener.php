@@ -72,7 +72,7 @@ class RouteAnnotationEventListener implements SitemapListenerInterface
      * @param  SitemapPopulateEvent      $event
      * @throws \InvalidArgumentException
      */
-    private function addUrlsFromRoutes(SitemapPopulateEvent $event)
+    protected function addUrlsFromRoutes(SitemapPopulateEvent $event)
     {
         $collection = $this->router->getRouteCollection();
 
@@ -141,7 +141,7 @@ class RouteAnnotationEventListener implements SitemapListenerInterface
      * @return UrlConcrete
      * @throws \InvalidArgumentException
      */
-    private function getUrlConcrete($name, $options)
+    protected function getUrlConcrete($name, $options)
     {
         try {
             $url = new UrlConcrete(
@@ -168,7 +168,7 @@ class RouteAnnotationEventListener implements SitemapListenerInterface
      * @return string
      * @throws \InvalidArgumentException
      */
-    private function getRouteUri($name)
+    protected function getRouteUri($name)
     {
         // does the route need parameters? if so, we can't add it
         try {

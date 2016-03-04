@@ -102,6 +102,18 @@ abstract class AbstractGenerator
     }
 
     /**
+     * Check if a URL set exists
+     * 
+     * @param string $name
+     *
+     * @return boolean
+     */
+    public function hasUrlset($name)
+    {
+        return array_key_exists($name, $this->urlsets);
+    }
+
+    /**
      * Factory method for create Urlsets
      *
      * @param string $name
