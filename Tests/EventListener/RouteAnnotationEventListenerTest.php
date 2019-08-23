@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -30,21 +30,20 @@ class RouteAnnotationEventListenerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * test "sitemap"=false annotation
-     */
-    public function testInvalidSitemapFalse()
-    {
-        $this->setExpectedException('InvalidArgumentException');
-        $this->assertEquals(-1, $this->getListener()->getOptions('route1', $this->getRoute(false)), 'sitemap = false throws an exception');
-    }
-
-    /**
      * test "sitemap"="anything" annotation
      */
     public function testInvalidSitemapArbitrary()
     {
         $this->setExpectedException('InvalidArgumentException');
         $this->assertEquals(-1, $this->getListener()->getOptions('route1', $this->getRoute('anything')), 'sitemap = "anything" throws an exception');
+    }
+
+    /**
+     * test "sitemap"=false annotation
+     */
+    public function testSitemapFalse()
+    {
+        $this->assertNull($this->getListener()->getOptions('route1', $this->getRoute(false)), 'sitemap = false returns null');
     }
 
     /**
@@ -56,9 +55,9 @@ class RouteAnnotationEventListenerTest extends \PHPUnit_Framework_TestCase
         $this->assertArrayHasKey('priority', $result);
         $this->assertArrayHasKey('changefreq', $result);
         $this->assertArrayHasKey('lastmod', $result);
-        $this->assertEquals(1, $result['priority']);
-        $this->assertEquals(UrlConcrete::CHANGEFREQ_DAILY, $result['changefreq']);
-        $this->assertInstanceOf('\DateTime', $result['lastmod']);
+        $this->assertNull($result['priority']);
+        $this->assertNull($result['changefreq']);
+        $this->assertNull($result['lastmod']);
     }
 
     /**
@@ -131,8 +130,9 @@ class RouteAnnotationEventListenerTest extends \PHPUnit_Framework_TestCase
      */
     private function getListener()
     {
-        $listener = new RouteAnnotationEventListener($this->getRouter());
-
-        return $listener;
+        return new RouteAnnotationEventListener(
+            $this->getRouter(),
+            'default'
+        );
     }
 }

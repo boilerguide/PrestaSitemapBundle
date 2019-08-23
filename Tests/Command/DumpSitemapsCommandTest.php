@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -13,14 +13,16 @@ namespace Presta\SitemapBundle\Tests\Command;
 
 use Presta\SitemapBundle\Command\DumpSitemapsCommand;
 use Presta\SitemapBundle\Event\SitemapPopulateEvent;
+use Presta\SitemapBundle\Service\Dumper;
 use Presta\SitemapBundle\Sitemap\Url\GoogleVideoUrlDecorator;
 use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\Routing\RouterInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * @author Alex Vasilenko
@@ -41,10 +43,13 @@ class DumpSitemapsCommandTest extends WebTestCase
         $this->fixturesDir = realpath(__DIR__ . '/../fixtures');
         $this->webDir = realpath(__DIR__ . '/../web');
 
-        self::createClient();
+        self::createClient(['debug' => false]);
         $this->container = self::$kernel->getContainer();
         $router = $this->container->get('router');
         /* @var $router RouterInterface */
+
+        $router->getContext()->fromRequest(Request::create('http://sitemap.php54.local'));
+
         $this->container->get('event_dispatcher')
             ->addListener(
                 SitemapPopulateEvent::ON_SITEMAP_POPULATE,
@@ -62,7 +67,7 @@ class DumpSitemapsCommandTest extends WebTestCase
                         ->setGalleryLoc($base_url . 'page_video1/gallery_loc/?p=1&sort=desc')
                         ->setGalleryLocTitle('Gallery title & spécial chars');
 
-                    $event->getGenerator()->addUrl($urlVideo, 'video');
+                    $event->getUrlContainer()->addUrl($urlVideo, 'video');
                 }
             );
     }
@@ -75,16 +80,9 @@ class DumpSitemapsCommandTest extends WebTestCase
         }
     }
 
-    public function testSitemapDumpWithFullyQualifiedBaseUrl()
-    {
-        $res = $this->executeDumpWithOptions(array('target' => $this->webDir, '--base-url' => 'http://sitemap.php54.local/'));
-        $this->assertEquals(0, $res, 'Command exited with error');
-        $this->assertXmlFileEqualsXmlFile($this->fixturesDir . '/sitemap.video.xml', $this->webDir . '/sitemap.video.xml');
-    }
-
     public function testSitemapDumpWithGzip()
     {
-        $res = $this->executeDumpWithOptions(array('target' => $this->webDir, '--base-url' => 'http://sitemap.php54.local/', '--gzip' => true));
+        $res = $this->executeDumpWithOptions(array('target' => $this->webDir, '--gzip' => true));
         $this->assertEquals(0, $res, 'Command exited with error');
 
         $xml = gzinflate(substr(file_get_contents($this->webDir . '/sitemap.video.xml.gz'), 10, -8));
@@ -101,7 +99,6 @@ class DumpSitemapsCommandTest extends WebTestCase
         $this->executeDumpWithOptions(
             array(
                 'target' => $this->webDir,
-                '--base-url' => 'http://sitemap.php54.local/',
                 '--section' => 'video',
                 '--gzip' => true
             )
@@ -113,12 +110,6 @@ class DumpSitemapsCommandTest extends WebTestCase
         );
 
         $this->assertSitemapIndexEquals($this->webDir . '/sitemap.xml', $expectedSitemaps);
-    }
-
-    public function testSitemapDumpWithInvalidUrl()
-    {
-        $this->setExpectedException('\InvalidArgumentException', '', DumpSitemapsCommand::ERR_INVALID_HOST);
-        $this->executeDumpWithOptions(array('target' => $this->webDir, '--base-url' => 'fake host'));
     }
 
     private function assertSitemapIndexEquals($sitemapFile, array $expectedSitemaps)
@@ -136,7 +127,13 @@ class DumpSitemapsCommandTest extends WebTestCase
     private function executeDumpWithOptions(array $input = array())
     {
         $application = new Application(self::$kernel);
-        $application->add(new DumpSitemapsCommand());
+        $application->add(
+            new DumpSitemapsCommand(
+                $this->container->get('router'),
+                new Dumper($this->container->get('event_dispatcher'), $this->container->get('filesystem')),
+                'public'
+            )
+        );
 
         $command = $application->find('presta:sitemaps:dump');
         $commandTester = new CommandTester($command);

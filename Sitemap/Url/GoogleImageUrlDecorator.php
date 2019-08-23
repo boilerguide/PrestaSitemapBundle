@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -23,15 +24,35 @@ class GoogleImageUrlDecorator extends UrlDecorator
 {
     const LIMIT_ITEMS = 1000;
 
+    /**
+     * @var string
+     */
     protected $imageXml = '';
-    protected $customNamespaces = array('image' => 'http://www.google.com/schemas/sitemap-image/1.1');
+
+    /**
+     * @var array
+     */
+    protected $customNamespaces = ['image' => 'http://www.google.com/schemas/sitemap-image/1.1'];
+
+    /**
+     * @var bool
+     */
     protected $limitItemsReached = false;
+
+    /**
+     * @var int
+     */
     protected $countItems = 0;
 
+    /**
+     * @param GoogleImage $image
+     *
+     * @return GoogleImageUrlDecorator
+     */
     public function addImage(GoogleImage $image)
     {
         if ($this->isFull()) {
-            throw new Exception\GoogleImageUrlDecorator('The image limit has been exceeded');
+            throw new Exception\GoogleImageException('The image limit has been exceeded');
         }
 
         $this->imageXml .= $image->toXml();
@@ -41,18 +62,17 @@ class GoogleImageUrlDecorator extends UrlDecorator
         if ($this->countItems++ >= self::LIMIT_ITEMS) {
             $this->limitItemsReached = true;
         }
-        //---------------------
+
         return $this;
     }
 
     /**
-     * add image elements before the closing tag
-     *
-     * @return string
+     * @inheritdoc
      */
     public function toXml()
     {
         $baseXml = $this->urlDecorated->toXml();
+
         return str_replace('</url>', $this->imageXml . '</url>', $baseXml);
     }
 

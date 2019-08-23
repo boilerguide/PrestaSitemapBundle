@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -12,16 +12,19 @@
 namespace Presta\SitemapBundle\Service;
 
 use Presta\SitemapBundle\Event\SitemapPopulateEvent;
-use Presta\SitemapBundle\Sitemap;
+use Presta\SitemapBundle\Sitemap\Sitemapindex;
 use Presta\SitemapBundle\Sitemap\Url\Url;
+use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
+use Presta\SitemapBundle\Sitemap\Urlset;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface as ContractsEventDispatcherInterface;
 
 /**
  * Abstract sitemap generator class
  *
  * @author Konstantin Myakshin <koc-dp@yandex.ru>
  */
-abstract class AbstractGenerator
+abstract class AbstractGenerator implements UrlContainerInterface
 {
     /**
      * @var EventDispatcherInterface
@@ -29,42 +32,53 @@ abstract class AbstractGenerator
     protected $dispatcher;
 
     /**
-     * @var Sitemap\Sitemapindex
+     * @var Sitemapindex
      */
     protected $root;
 
     /**
-     * @var Sitemap\Urlset[]|Sitemap\DumpingUrlset[]
+     * @var Urlset[]
      */
     protected $urlsets = array();
 
     /**
      * The maximum number of item generated in a sitemap
-     *
      * @var int
      */
     protected $itemsBySet;
 
     /**
+     * @var array
+     */
+    private $defaults;
+
+    /**
      * @param EventDispatcherInterface $dispatcher
+     * @param int|null                 $itemsBySet
      */
     public function __construct(EventDispatcherInterface $dispatcher, $itemsBySet = null)
     {
         $this->dispatcher = $dispatcher;
-        // We add one to LIMIT_ITEMS because it was used as an index, not a
-        // quantity
-        $this->itemsBySet = ($itemsBySet === null) ? Sitemap\Sitemapindex::LIMIT_ITEMS + 1 : $itemsBySet;
+        // We add one to LIMIT_ITEMS because it was used as an index, not a quantity
+        $this->itemsBySet = ($itemsBySet === null) ? Sitemapindex::LIMIT_ITEMS + 1 : $itemsBySet;
+
+        $this->defaults = [
+            'priority' => 1,
+            'changefreq' => UrlConcrete::CHANGEFREQ_DAILY,
+            'lastmod' => 'now',
+        ];
     }
 
     /**
-     * add an Url to an Urlset
-     *
-     * section is helpfull for partial cache invalidation
-     *
-     * @param Url    $url
-     * @param string $section
-     *
-     * @throws \RuntimeException
+     * @param array $defaults
+     */
+    public function setDefaults(array $defaults)
+    {
+        $this->defaults = $defaults;
+    }
+
+    /**
+     * @inheritdoc
      */
     public function addUrl(Url $url, $section)
     {
@@ -73,13 +87,25 @@ abstract class AbstractGenerator
         // Compare the number of items in the urlset against the maximum
         // allowed and check the maximum of 50k sitemap in sitemapindex
         $i = 0;
-        while ((count($urlset) >= $this->itemsBySet || $urlset->isFull()) && $i <= Sitemap\Sitemapindex::LIMIT_ITEMS) {
+        while ((count($urlset) >= $this->itemsBySet || $urlset->isFull()) && $i <= Sitemapindex::LIMIT_ITEMS) {
             $urlset = $this->getUrlset($section . '_' . $i);
             $i++;
         }
 
         if (count($urlset) >= $this->itemsBySet || $urlset->isFull()) {
             throw new \RuntimeException('The limit of sitemapindex has been exceeded');
+        }
+
+        if ($url instanceof UrlConcrete) {
+            if (null === $url->getLastmod() && null !== $this->defaults['lastmod']) {
+                $url->setLastmod(new \DateTime($this->defaults['lastmod']));
+            }
+            if (null === $url->getChangefreq()) {
+                $url->setChangefreq($this->defaults['changefreq']);
+            }
+            if (null === $url->getPriority()) {
+                $url->setPriority($this->defaults['priority']);
+            }
         }
 
         $urlset->addUrl($url);
@@ -90,7 +116,7 @@ abstract class AbstractGenerator
      *
      * @param string $name
      *
-     * @return Sitemap\Urlset
+     * @return Urlset
      */
     public function getUrlset($name)
     {
@@ -116,10 +142,10 @@ abstract class AbstractGenerator
     /**
      * Factory method for create Urlsets
      *
-     * @param string $name
-     * @param \DateTime $lastmod
+     * @param string         $name
+     * @param \DateTime|null $lastmod
      *
-     * @return Sitemap\Urlset
+     * @return Urlset
      */
     abstract protected function newUrlset($name, \DateTime $lastmod = null);
 
@@ -131,16 +157,21 @@ abstract class AbstractGenerator
     protected function populate($section = null)
     {
         $event = new SitemapPopulateEvent($this, $section);
-        $this->dispatcher->dispatch(SitemapPopulateEvent::ON_SITEMAP_POPULATE, $event);
+
+        if ($this->dispatcher instanceof ContractsEventDispatcherInterface) {
+            $this->dispatcher->dispatch($event, SitemapPopulateEvent::ON_SITEMAP_POPULATE);
+        } else {
+            $this->dispatcher->dispatch(SitemapPopulateEvent::ON_SITEMAP_POPULATE, $event);
+        }
     }
 
     /**
-     * @return Sitemap\Sitemapindex
+     * @return Sitemapindex
      */
     protected function getRoot()
     {
         if (null === $this->root) {
-            $this->root = new Sitemap\Sitemapindex();
+            $this->root = new Sitemapindex();
 
             foreach ($this->urlsets as $urlset) {
                 $this->root->addSitemap($urlset);

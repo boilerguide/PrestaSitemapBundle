@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -13,16 +13,26 @@ namespace Presta\SitemapBundle\Tests\Controller;
 
 use Presta\SitemapBundle\Controller;
 use Presta\SitemapBundle\Event\SitemapPopulateEvent;
-use Presta\SitemapBundle\Service\Generator;
 use Presta\SitemapBundle\Sitemap\Url;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class SitemapControllerTest extends WebTestCase
 {
+    /**
+     * @var Controller\SitemapController
+     */
+    private $controller;
+
+    /**
+     * @var ContainerInterface
+     */
+    private $container;
+
     public function setUp()
     {
         //boot appKernel
-        self::createClient();
+        self::createClient(['debug' => false]);
         $this->container  = static::$kernel->getContainer();
 
         //set controller to test
@@ -35,7 +45,7 @@ class SitemapControllerTest extends WebTestCase
             ->addListener(
                 SitemapPopulateEvent::ON_SITEMAP_POPULATE,
                 function (SitemapPopulateEvent $event) {
-                    $event->getGenerator()->addUrl(
+                    $event->getUrlContainer()->addUrl(
                         new Url\UrlConcrete(
                             'http://acme.com/static-page.html',
                             new \DateTime(),
@@ -51,23 +61,21 @@ class SitemapControllerTest extends WebTestCase
 
     public function testIndexAction()
     {
-        $response   = $this->controller->indexAction();
-        $this->isInstanceOf('Symfony\Component\HttpFoundation\Response', $response);
+        $response = $this->controller->indexAction();
+        $this->assertInstanceOf('Symfony\Component\HttpFoundation\Response', $response);
     }
 
     public function testValidSectionAction()
     {
         $response = $this->controller->sectionAction('default');
-        $this->isInstanceOf('Symfony\Component\HttpFoundation\Response', $response);
+        $this->assertInstanceOf('Symfony\Component\HttpFoundation\Response', $response);
     }
 
+    /**
+     * @expectedException \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
+     */
     public function testNotFoundSectionAction()
     {
-        try {
-            $this->controller->sectionAction('void');
-            $this->fail('section "void" does\'nt exist');
-        } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
-            //this is ok
-        }
+        $this->controller->sectionAction('void');
     }
 }

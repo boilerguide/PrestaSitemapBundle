@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -14,8 +14,8 @@ namespace Presta\SitemapBundle\Test\Sitemap\Url;
 use Presta\SitemapBundle\Exception\GoogleNewsUrlException;
 use Presta\SitemapBundle\Service\Generator;
 use Presta\SitemapBundle\Sitemap\Url\GoogleNewsUrlDecorator;
-use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
 use Presta\SitemapBundle\Sitemap\Url\Url;
+use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
 
 /**
  * Tests the GoogleNewsUrlDecorator
@@ -124,7 +124,6 @@ class GoogleNewsUrlDecoratorTest extends \PHPUnit_Framework_TestCase
         try {
             $url->setGeoLocations('Hamburg, Germany');
             $url->setGeoLocations('Detroit, Michigan, USA');
-
         } catch (GoogleNewsUrlException $e) {
             $failed = true;
         }
@@ -227,8 +226,8 @@ class GoogleNewsUrlDecoratorTest extends \PHPUnit_Framework_TestCase
     {
         $section = 'default';
         $generator = new Generator(
-            $this->getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface'),
-            $this->getMock('Symfony\Component\Routing\RouterInterface')
+            $this->getMockBuilder('Symfony\Component\EventDispatcher\EventDispatcherInterface')->getMock(),
+            $this->getMockBuilder('Symfony\Component\Routing\RouterInterface')->getMock()
         );
         $generator->addUrl($url, 'default');
 

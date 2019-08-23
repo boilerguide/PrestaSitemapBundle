@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,10 +12,9 @@
 namespace Presta\SitemapBundle\Service;
 
 use Doctrine\Common\Cache\Cache;
+use Presta\SitemapBundle\Sitemap\Urlset;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Presta\SitemapBundle\Sitemap;
 
 /**
  * Sitemap Manager service
@@ -23,31 +23,46 @@ use Presta\SitemapBundle\Sitemap;
  * @author Christophe Dolivet
  * @author Konstantin Myakshin <koc-dp@yandex.ru>
  */
-class Generator extends AbstractGenerator
+class Generator extends AbstractGenerator implements GeneratorInterface
 {
+    /**
+     * @var UrlGeneratorInterface
+     */
     protected $router;
+
+    /**
+     * @var Cache|null
+     */
     protected $cache;
+
+    /**
+     * @var int|null
+     */
     protected $cacheTtl;
 
     /**
      * @param EventDispatcherInterface $dispatcher
-     * @param int $itemsBySet
-     * @param RouterInterface $router
-     * @param Cache|null $cache
-     * @param integer|null $cacheTtl
+     * @param UrlGeneratorInterface    $router
+     * @param Cache|null               $cache
+     * @param int|null                 $cacheTtl
+     * @param int|null                 $itemsBySet
      */
-    public function __construct(EventDispatcherInterface $dispatcher, RouterInterface $router, Cache $cache = null, $cacheTtl = null, $itemsBySet = null)
-    {
+    public function __construct(
+        EventDispatcherInterface $dispatcher,
+        UrlGeneratorInterface $router,
+        Cache $cache = null,
+        $cacheTtl = null,
+        $itemsBySet = null
+    ) {
         parent::__construct($dispatcher, $itemsBySet);
+
         $this->router = $router;
         $this->cache = $cache;
         $this->cacheTtl = $cacheTtl;
     }
 
     /**
-     * Generate all datas and store in cache if it is possible
-     *
-     * @return void
+     * @inheritdoc
      */
     public function generate()
     {
@@ -67,10 +82,7 @@ class Generator extends AbstractGenerator
     }
 
     /**
-     * Get eventual cached data or generate whole sitemap
-     *
-     * @param string $name
-     * @return Sitemap\Sitemapindex or Urlset - can be <null>
+     * @inheritdoc
      */
     public function fetch($name)
     {
@@ -78,30 +90,37 @@ class Generator extends AbstractGenerator
             return $this->cache->fetch($name);
         }
 
-        $this->generate();
+        if ('root' === $name) {
+            $this->generate();
 
-        if ('root' == $name) {
             return $this->getRoot();
         }
 
+        $this->populate($name);
+
         if (array_key_exists($name, $this->urlsets)) {
-            return $this->urlsets[$name];
+            $urlset = $this->urlsets[$name];
+            if ($this->cache) {
+                $this->cache->save($name, $urlset, $this->cacheTtl);
+            }
+
+            return $urlset;
         }
 
         return null;
     }
 
     /**
-     * Factory method for create Urlsets
-     *
-     * @param string $name
-     *
-     * @return Sitemap\Urlset
+     * @inheritdoc
      */
     protected function newUrlset($name, \DateTime $lastmod = null)
     {
-        return new Sitemap\Urlset(
-            $this->router->generate('PrestaSitemapBundle_section', array('name' => $name, '_format' => 'xml'), UrlGeneratorInterface::ABSOLUTE_URL),
+        return new Urlset(
+            $this->router->generate(
+                'PrestaSitemapBundle_section',
+                ['name' => $name, '_format' => 'xml'],
+                UrlGeneratorInterface::ABSOLUTE_URL
+            ),
             $lastmod
         );
     }

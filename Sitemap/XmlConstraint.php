@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -12,6 +13,7 @@ namespace Presta\SitemapBundle\Sitemap;
 
 /**
  * Xml requirements for sitemap protocol
+ *
  * @see http://www.sitemaps.org/protocol.html
  *
  * @author depely
@@ -19,11 +21,26 @@ namespace Presta\SitemapBundle\Sitemap;
 abstract class XmlConstraint implements \Countable
 {
     const LIMIT_ITEMS = 49999;
-    const LIMIT_BYTES = 10000000; // 10,485,760 bytes - 485,760
+    const LIMIT_BYTES = 50000000; // 52,428,800 bytes - 2,428,800
 
+    /**
+     * @var bool
+     */
     protected $limitItemsReached = false;
+
+    /**
+     * @var bool
+     */
     protected $limitBytesReached = false;
+
+    /**
+     * @var int
+     */
     protected $countBytes = 0;
+
+    /**
+     * @var int
+     */
     protected $countItems = 0;
 
     /**
@@ -35,7 +52,7 @@ abstract class XmlConstraint implements \Countable
     }
 
     /**
-     * {@inheritdoc}
+     * @inheritdoc
      */
     public function count()
     {

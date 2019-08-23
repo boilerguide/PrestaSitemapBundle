@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -11,8 +11,8 @@
 
 namespace Presta\SitemapBundle\Test\Sitemap;
 
-use Presta\SitemapBundle\Sitemap\Utils;
 use Presta\SitemapBundle\Exception\Exception;
+use Presta\SitemapBundle\Sitemap\Utils;
 
 /**
  * Description of Utils

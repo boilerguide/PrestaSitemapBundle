@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -10,9 +11,9 @@
 
 namespace Presta\SitemapBundle\DependencyInjection\Compiler;
 
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Presta\SitemapBundle\Event\SitemapPopulateEvent;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Registering services tagged with presta.sitemap.listener as actual event listeners
@@ -22,12 +23,7 @@ use Presta\SitemapBundle\Event\SitemapPopulateEvent;
 class AddSitemapListenersPass implements CompilerPassInterface
 {
     /**
-     * Adds services tagges as presta.sitemap.listener as event listeners for
-     * corresponding sitemap event
-     *
-     * @param \Symfony\Component\DependencyInjection\ContainerBuilder $container
-     *
-     * @throws \InvalidArgumentException
+     * @inheritdoc
      */
     public function process(ContainerBuilder $container)
     {
@@ -39,6 +35,8 @@ class AddSitemapListenersPass implements CompilerPassInterface
 
         foreach ($container->findTaggedServiceIds('presta.sitemap.listener') as $id => $tags) {
             $class = $container->getDefinition($id)->getClass();
+
+            @trigger_error('The service "'.$id.'" was tagged with "presta.sitemap.listener", which is deprecated. Use Symfony event listeners/subscribers instead.', E_USER_DEPRECATED);
 
             $refClass = new \ReflectionClass($class);
             $interface = 'Presta\SitemapBundle\Service\SitemapListenerInterface';

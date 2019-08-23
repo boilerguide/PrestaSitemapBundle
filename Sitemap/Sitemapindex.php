@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -13,12 +14,18 @@ namespace Presta\SitemapBundle\Sitemap;
 /**
  * Representation of sitemap (urlset) list
  *
- * @author  David Epely
+ * @author David Epely
  */
 class Sitemapindex extends XmlConstraint
 {
+    /**
+     * @var string
+     */
     protected $sitemapsXml = '';
 
+    /**
+     * @param Urlset $urlset
+     */
     public function addSitemap(Urlset $urlset)
     {
         if ($this->isFull()) {
@@ -49,13 +56,14 @@ class Sitemapindex extends XmlConstraint
      * Render urlset as sitemap in xml
      *
      * @param Urlset $urlset
+     *
      * @return string
      */
     protected function getSitemapXml(Urlset $urlset)
     {
         return '<sitemap><loc>' . $urlset->getLoc()
-                . '</loc><lastmod>' . $urlset->getLastmod()->format('c')
-                . '</lastmod></sitemap>';
+            . '</loc><lastmod>' . $urlset->getLastmod()->format('c')
+            . '</lastmod></sitemap>';
     }
 
     /**
@@ -74,12 +82,10 @@ class Sitemapindex extends XmlConstraint
     }
 
     /**
-     * @see parent::toXml()
+     * @inheritdoc
      */
     public function toXml()
     {
-        $xml = $this->getStructureXml();
-
-        return str_replace('SITEMAPS', $this->sitemapsXml, $xml);
+        return str_replace('SITEMAPS', $this->sitemapsXml, $this->getStructureXml());
     }
 }

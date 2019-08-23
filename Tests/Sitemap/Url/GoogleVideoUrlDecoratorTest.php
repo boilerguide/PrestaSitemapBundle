@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of the PrestaSitemapBundle
+ * This file is part of the PrestaSitemapBundle package.
  *
  * (c) PrestaConcept <www.prestaconcept.net>
  *
@@ -11,9 +11,8 @@
 
 namespace Presta\SitemapBundle\Test\Sitemap\Url;
 
-use Presta\SitemapBundle\Sitemap;
-use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
 use Presta\SitemapBundle\Sitemap\Url\GoogleVideoUrlDecorator;
+use Presta\SitemapBundle\Sitemap\Url\UrlConcrete;
 
 /**
  * @author David Epely <depely@prestaconcept.net>
@@ -89,6 +88,5 @@ class GoogleVideoUrlDecoratorTest extends \PHPUnit_Framework_TestCase
     {
         $category = $this->xml->getElementsByTagName('category')->item(0)->nodeValue;
         $this->assertEquals($category, 'Testing w/ spécial chars');
-
     }
 }

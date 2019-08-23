@@ -1,37 +1,33 @@
 language: php
 
-php:
-    - 5.3
-    - 5.4
-    - 5.5
-    - 5.6
-    - 7.0
-    - hhvm
-
 matrix:
     include:
         - php: 5.6
-          env: SYMFONY_VERSION=2.2.*
-        - php: 5.6
           env: SYMFONY_VERSION=2.3.*
         - php: 5.6
-          env: SYMFONY_VERSION=2.4.*
+          env: SYMFONY_VERSION=2.7.*
         - php: 5.6
-          env: SYMFONY_VERSION=2.5.*
+          env: SYMFONY_VERSION=2.8.*
         - php: 5.6
-          env: SYMFONY_VERSION=2.6.*
-        - php: 5.6
-          env: SYMFONY_VERSION=2.8.*@dev SYMFONY_DEPRECATIONS_HELPER=strict
-        - php: 5.6
-          env: SYMFONY_VERSION=3.0.*@dev SYMFONY_DEPRECATIONS_HELPER=strict
-        - php: 5.6
-          env: PHPCS=yes
-    allow_failures:
-        - env: SYMFONY_VERSION=3.0.*@dev
+          env: SYMFONY_VERSION=3.0.*
+        - php: 7.0
+          env: SYMFONY_VERSION=3.2.*
+        - php: 7.0
+          env: SYMFONY_VERSION=3.3.*
+        - php: 7.0
+          env: SYMFONY_VERSION=3.4.*
+        - php: 7.1
+          env: SYMFONY_VERSION=3.4.*
+        - php: 7.1
+          env: SYMFONY_VERSION=4.0.*
+        - php: 7.2
+          env: SYMFONY_VERSION=3.4.* SYMFONY_DEPRECATIONS_HELPER=weak
+        - php: 7.2
+          env: SYMFONY_VERSION=4.0.* SYMFONY_DEPRECATIONS_HELPER=weak
 
 env:
     global:
-        - SYMFONY_DEPRECATIONS_HELPER=weak
+        - SYMFONY_DEPRECATIONS_HELPER=strict
 
 sudo: false
 
@@ -44,13 +40,14 @@ before_install:
     - if [ "$PHPCS" = "yes" ]; then phpenv rehash; fi
     - if [ "$PHPCS" != "yes"]; then composer selfupdate; fi
     - if [ "$SYMFONY_VERSION" != "" ]; then composer require --no-update symfony/symfony:${SYMFONY_VERSION}; fi
+    - if [ "$SYMFONY_VERSION" = "3.4.*" ] || [ "$SYMFONY_VERSION" = "4.0.*" ]; then rm -f phpunit.xml; cp phpunit.sf4.xml.dist phpunit.xml; fi
 
-install: if [ "$PHPCS" != "yes" ]; then composer update --prefer-dist; fi
+install: php -d memory_limit=-1 $(phpenv which composer) update --no-suggest --prefer-dist
 
 script:
-    - if [ "$PHPCS" != "yes" ]; then phpunit --coverage-text; fi
+    - if [ "$PHPCS" != "yes" ]; then vendor/bin/phpunit --coverage-text; fi
     - if [ "$PHPCS" = "yes" ]; then phpcs --ignore=/vendor/*,/Tests/app/* --extensions=php --encoding=utf-8 --standard=PSR2 -np .; fi
 
 notifications:
     email:
-        - aflaus@prestaconcept.net
+        - yeugone@prestaconcept.net

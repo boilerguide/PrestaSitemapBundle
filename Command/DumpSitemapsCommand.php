@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -10,27 +11,48 @@
 
 namespace Presta\SitemapBundle\Command;
 
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
+use Presta\SitemapBundle\Service\DumperInterface;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Command to dump the sitemaps to provided directory
  *
  * @author Konstantin Tjuterev <kostik.lv@gmail.com>
  */
-class DumpSitemapsCommand extends ContainerAwareCommand
+class DumpSitemapsCommand extends Command
 {
-    const ERR_INVALID_HOST = -1;
-    const ERR_INVALID_DIR = -2;
+    /**
+     * @var RouterInterface
+     */
+    private $router;
 
     /**
-     * Configure CLI command, message, options
-     *
-     * @return void
+     * @var DumperInterface
+     */
+    private $dumper;
+
+    /**
+     * @var string
+     */
+    private $defaultTarget;
+
+    public function __construct(RouterInterface $router, DumperInterface $dumper, $defaultTarget)
+    {
+        $this->router = $router;
+        $this->dumper = $dumper;
+        $this->defaultTarget = $defaultTarget;
+        
+        parent::__construct(null);
+    }
+
+    /**
+     * @inheritdoc
      */
     protected function configure()
     {
@@ -46,7 +68,7 @@ class DumpSitemapsCommand extends ContainerAwareCommand
                 'base-url',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Base url to use for absolute urls. Good example - http://acme.com/, bad example - acme.com. Defaults to dumper_base_url config parameter'
+                'Base url to use for absolute urls. Good example - http://acme.com/, bad example - acme.com. Defaults to router.request_context.host parameter'
             )
             ->addOption(
                 'gzip',
@@ -58,40 +80,35 @@ class DumpSitemapsCommand extends ContainerAwareCommand
                 'target',
                 InputArgument::OPTIONAL,
                 'Location where to dump sitemaps. Generated urls will not be related to this folder.',
-                'web'
+                $this->defaultTarget
             );
     }
 
     /**
-     * Code to execute for the command
-     *
-     * @param InputInterface   $input  Input object from the console
-     * @param OutputInterface $output Output object for the console
-     *
-     * @throws \InvalidArgumentException
-     * @return void
+     * @inheritdoc
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $targetDir = rtrim($input->getArgument('target'), '/');
 
-        $container = $this->getContainer();
-        $dumper = $container->get('presta_sitemap.dumper');
-        /* @var $dumper \Presta\SitemapBundle\Service\Dumper */
+        if ($baseUrl = $input->getOption('base-url')) {
+            $baseUrl = rtrim($baseUrl, '/') . '/';
 
-        $baseUrl = $input->getOption('base-url') ?: $container->getParameter('presta_sitemap.dumper_base_url');
-        $baseUrl = rtrim($baseUrl, '/') . '/';
+            //sanity check
+            if (!parse_url($baseUrl, PHP_URL_HOST)) {
+                throw new \InvalidArgumentException(
+                    'Invalid base url. Use fully qualified base url, e.g. http://acme.com/',
+                    -1
+                );
+            }
 
-        //sanity check
-        if (!parse_url($baseUrl, PHP_URL_HOST)) {
-            throw new \InvalidArgumentException("Invalid base url. Use fully qualified base url, e.g. http://acme.com/", self::ERR_INVALID_HOST);
+            // Set Router's host used for generating URLs from configuration param
+            // There is no other way to manage domain in CLI
+            $request = Request::create($baseUrl);
+            $this->router->getContext()->fromRequest($request);
+        } else {
+            $baseUrl = $this->getBaseUrl();
         }
-        $request = Request::create($baseUrl);
-
-        // Set Router's host used for generating URLs from configuration param
-        // There is no other way to manage domain in CLI
-        $container->set('request', $request);
-        $container->get('router')->getContext()->fromRequest($request);
 
         if ($input->getOption('section')) {
             $output->writeln(
@@ -112,7 +129,7 @@ class DumpSitemapsCommand extends ContainerAwareCommand
         $options = array(
             'gzip' => (Boolean)$input->getOption('gzip'),
         );
-        $filenames = $dumper->dump($targetDir, $baseUrl, $input->getOption('section'), $options);
+        $filenames = $this->dumper->dump($targetDir, $baseUrl, $input->getOption('section'), $options);
 
         if ($filenames === false) {
             $output->writeln("<error>No URLs were added to sitemap by EventListeners</error> - this may happen when provided section is invalid");
@@ -124,5 +141,30 @@ class DumpSitemapsCommand extends ContainerAwareCommand
         foreach ($filenames as $filename) {
             $output->writeln("    <comment>$filename</comment>");
         }
+    }
+
+    /**
+     * @return string
+     */
+    private function getBaseUrl()
+    {
+        $context = $this->router->getContext();
+
+        if ('' === $host = $context->getHost()) {
+            throw new \RuntimeException(
+                'Router host must be configured to be able to dump the sitemap, please see documentation.'
+            );
+        }
+
+        $scheme = $context->getScheme();
+        $port = '';
+
+        if ('http' === $scheme && 80 != $context->getHttpPort()) {
+            $port = ':'.$context->getHttpPort();
+        } elseif ('https' === $scheme && 443 != $context->getHttpsPort()) {
+            $port = ':'.$context->getHttpsPort();
+        }
+
+        return rtrim($scheme . '://' . $host . $port, '/') . '/';
     }
 }

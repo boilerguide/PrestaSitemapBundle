@@ -1,8 +1,9 @@
 <?php
 
-/*
- * This file is part of the prestaSitemapPlugin package.
- * (c) David Epely <depely@prestaconcept.net>
+/**
+ * This file is part of the PrestaSitemapBundle package.
+ *
+ * (c) PrestaConcept <www.prestaconcept.net>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -11,10 +12,11 @@
 namespace Presta\SitemapBundle\Service;
 
 use Presta\SitemapBundle\DependencyInjection\Configuration;
+use Presta\SitemapBundle\Sitemap\DumpingUrlset;
+use Presta\SitemapBundle\Sitemap\Urlset;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Finder\Finder;
-use Presta\SitemapBundle\Sitemap\DumpingUrlset;
 
 /**
  * Service for dumping sitemaps into static files
@@ -22,24 +24,22 @@ use Presta\SitemapBundle\Sitemap\DumpingUrlset;
  * @author Konstantin Tjuterev <kostik.lv@gmail.com>
  * @author Konstantin Myakshin <koc-dp@yandex.ru>
  */
-class Dumper extends AbstractGenerator
+class Dumper extends AbstractGenerator implements DumperInterface
 {
     /**
      * Path to folder where temporary files will be created
-     *
      * @var string
      */
     protected $tmpFolder;
 
     /**
      * Base URL where dumped sitemap files can be accessed (we can't guess that from console)
-     *
      * @var string
      */
     protected $baseUrl;
 
     /**
-     * @var \Symfony\Component\Filesystem\Filesystem
+     * @var Filesystem
      */
     protected $filesystem;
 
@@ -50,9 +50,9 @@ class Dumper extends AbstractGenerator
 
     /**
      * @param EventDispatcherInterface $dispatcher Symfony's EventDispatcher
-     * @param Filesystem $filesystem Symfony's Filesystem
-     * @param $sitemapFilePrefix
-     * @param int $itemsBySet
+     * @param Filesystem               $filesystem Symfony's Filesystem
+     * @param string                   $sitemapFilePrefix
+     * @param int|null                 $itemsBySet
      */
     public function __construct(
         EventDispatcherInterface $dispatcher,
@@ -61,23 +61,17 @@ class Dumper extends AbstractGenerator
         $itemsBySet = null
     ) {
         parent::__construct($dispatcher, $itemsBySet);
+
         $this->filesystem = $filesystem;
         $this->sitemapFilePrefix = $sitemapFilePrefix;
     }
 
     /**
-     * Dumps sitemaps and sitemap index into provided directory
-     *
-     * @param string $targetDir Directory where to save sitemap files
-     * @param string $host
-     * @param null   $section   Optional section name - only sitemaps of this section will be updated
-     * @param array  $options   Possible options: gzip
-     *
-     * @return array|bool
+     * @inheritdoc
      */
     public function dump($targetDir, $host, $section = null, array $options = array())
     {
-        $options = array_merge(array('gzip' => false), $options);
+        $options = array_merge(['gzip' => false], $options);
 
         $this->baseUrl = $host;
         // we should prepare temp folder each time, because dump may be called several times (with different sections)
@@ -95,14 +89,17 @@ class Dumper extends AbstractGenerator
         }
 
         foreach ($this->urlsets as $urlset) {
-            $urlset->save($this->tmpFolder, $options['gzip']);
+            if ($urlset instanceof DumpingUrlset) {
+                $urlset->save($this->tmpFolder, $options['gzip']);
+            }
             $filenames[] = basename($urlset->getLoc());
         }
 
         if (null !== $section) {
             // Load current SitemapIndex file and add all sitemaps except those,
             // matching section currently being regenerated to root
-            foreach ($this->loadCurrentSitemapIndex($targetDir . '/' . $this->sitemapFilePrefix . '.xml') as $key => $urlset) {
+            $index = $this->loadCurrentSitemapIndex($targetDir . '/' . $this->sitemapFilePrefix . '.xml');
+            foreach ($index as $key => $urlset) {
                 // cut possible _X, to compare base section name
                 $baseKey = preg_replace('/(.*?)(_\d+)?/', '\1', $key);
                 if ($baseKey !== $section) {
@@ -149,9 +146,9 @@ class Dumper extends AbstractGenerator
     /**
      * Loads sitemap index XML file and returns array of Urlset objects
      *
-     * @param $filename
+     * @param string $filename
      *
-     * @return array
+     * @return Urlset[]
      * @throws \InvalidArgumentException
      */
     protected function loadCurrentSitemapIndex($filename)
@@ -163,13 +160,18 @@ class Dumper extends AbstractGenerator
         $urlsets = array();
         $index = simplexml_load_file($filename);
         foreach ($index->children() as $child) {
+            /** @var $child \SimpleXMLElement */
             if ($child->getName() == 'sitemap') {
                 if (!isset($child->loc)) {
                     throw new \InvalidArgumentException(
                         "One of referenced sitemaps in $filename doesn't contain 'loc' attribute"
                     );
                 }
-                $basename = preg_replace('/^' . preg_quote($this->sitemapFilePrefix) . '\.(.+)\.xml(?:\.gz)?$/', '\1', basename($child->loc)); // cut .xml|.xml.gz
+                $basename = preg_replace(
+                    '/^' . preg_quote($this->sitemapFilePrefix) . '\.(.+)\.xml(?:\.gz)?$/',
+                    '\1',
+                    basename($child->loc)
+                ); // cut .xml|.xml.gz
 
                 if (!isset($child->lastmod)) {
                     throw new \InvalidArgumentException(
@@ -199,7 +201,9 @@ class Dumper extends AbstractGenerator
 
         if (!is_writable($targetDir)) {
             $this->cleanup();
-            throw new \RuntimeException(sprintf('Can\'t move sitemaps to "%s" - directory is not writeable', $targetDir));
+            throw new \RuntimeException(
+                sprintf('Can\'t move sitemaps to "%s" - directory is not writeable', $targetDir)
+            );
         }
         $this->deleteExistingSitemaps($targetDir);
 
@@ -211,7 +215,7 @@ class Dumper extends AbstractGenerator
     /**
      * Deletes sitemap files matching filename patterns of newly generated files
      *
-     * @param $targetDir string
+     * @param string $targetDir
      */
     protected function deleteExistingSitemaps($targetDir)
     {
@@ -223,20 +227,14 @@ class Dumper extends AbstractGenerator
             // pattern is base name of sitemap file (with .xml cut) optionally followed by _X for numbered files
             $basename = preg_replace('/\.xml(?:\.gz)?$/', '', $basename); // cut .xml|.xml.gz
             $pattern = '/' . preg_quote($basename, '/') . '(_\d+)?\.xml(?:\.gz)?$/';
-            foreach (Finder::create()->in($targetDir)->name($pattern)->files() as $file) {
+            foreach (Finder::create()->in($targetDir)->depth(0)->name($pattern)->files() as $file) {
                 $this->filesystem->remove($file);
             }
         }
     }
 
     /**
-     * Factory method for creating Urlset objects
-     *
-     * @param string $name
-     *
-     * @param \DateTime $lastmod
-     *
-     * @return DumpingUrlset
+     * @inheritdoc
      */
     protected function newUrlset($name, \DateTime $lastmod = null)
     {
